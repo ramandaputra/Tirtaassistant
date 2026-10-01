@@ -35,4 +35,10 @@ return [
         ],
     ],
 
+    'gemini' => [
+        'api_key' => env('GEMINI_API_KEY'),
+        'embedding_model' => env('GEMINI_EMBEDDING_MODEL', 'gemini-embedding-exp-03-07'),
+        'chat_model' => env('GEMINI_CHAT_MODEL', 'gemini-2.0-flash'),
+    ],
+
 ];
