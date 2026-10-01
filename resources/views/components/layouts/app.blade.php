@@ -20,7 +20,7 @@
                 <div class="flex justify-between h-16">
                     <div class="flex">
                         <div class="flex-shrink-0 flex items-center">
-                            <h1 class="text-xl font-bold text-blue-600">🧠 RAG Chatbot</h1>
+                            <h1 class="text-xl font-bold text-blue-600">TirtaAssistant</h1>
                         </div>
                     </div>
                 </div>
