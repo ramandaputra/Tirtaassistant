@@ -29,7 +29,7 @@ class KnowledgeManager extends Component
 
         $originalName = $this->document->getClientOriginalName();
         $filename = $this->document->store('knowledge_base');
-        
+
         // Save to DB
         $doc = KnowledgeDocument::create([
             'filename' => basename($filename),
@@ -40,10 +40,10 @@ class KnowledgeManager extends Component
         ]);
 
         $this->document = null; // reset
-        
+
         // Dispatch job to process the document
-        ProcessDocumentJob::dispatch($doc->id);
-        
+        ProcessDocumentJob::dispatchSync($doc->id);
+
         session()->flash('message', 'Dokumen berhasil diunggah dan sedang diproses.');
     }
 
@@ -51,16 +51,25 @@ class KnowledgeManager extends Component
     {
         $doc = KnowledgeDocument::find($id);
         if ($doc) {
-            Storage::delete('knowledge_base/' . $doc->filename);
+            Storage::delete('knowledge_base/'.$doc->filename);
             $doc->delete();
             session()->flash('message', 'Dokumen berhasil dihapus.');
         }
     }
 
+    public function reprocessDocument(int $id): void
+    {
+        $document = KnowledgeDocument::findOrFail($id);
+        $document->update(['status' => 'pending', 'error_message' => null]);
+
+        ProcessDocumentJob::dispatchSync($document->id);
+        session()->flash('message', 'Dokumen telah diproses ulang.');
+    }
+
     public function render()
     {
         return view('livewire.knowledge-manager', [
-            'documents' => KnowledgeDocument::latest()->get()
+            'documents' => KnowledgeDocument::latest()->get(),
         ]);
     }
 }

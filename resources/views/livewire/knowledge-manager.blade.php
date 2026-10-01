@@ -113,6 +113,9 @@
                                             {{ $doc->chunk_count }}
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                            <button wire:click="reprocessDocument({{ $doc->id }})" wire:confirm="Proses ulang dokumen ini?" class="text-blue-600 hover:text-blue-900">
+                                                Proses ulang
+                                            </button>
                                             <button wire:click="deleteDocument({{ $doc->id }})" wire:confirm="Yakin ingin menghapus dokumen ini beserta semua datanya?" class="text-red-600 hover:text-red-900 ml-3">
                                                 Hapus
                                             </button>

@@ -15,6 +15,7 @@ class ProcessDocumentJob implements ShouldQueue
     use Queueable;
 
     public int $tries = 3;
+
     public int $timeout = 300; // 5 minutes
 
     public function __construct(
@@ -25,8 +26,9 @@ class ProcessDocumentJob implements ShouldQueue
     {
         $document = KnowledgeDocument::find($this->documentId);
 
-        if (!$document) {
+        if (! $document) {
             Log::warning("ProcessDocumentJob: Document {$this->documentId} not found");
+
             return;
         }
 
@@ -69,10 +71,10 @@ class ProcessDocumentJob implements ShouldQueue
 
                 DocumentChunk::create([
                     'knowledge_document_id' => $document->id,
-                    'chunk_index'           => $index,
-                    'content'               => $chunkData['content'],
-                    'embedding'             => $embedding,
-                    'token_count'           => $chunkData['token_count'],
+                    'chunk_index' => $index,
+                    'content' => $chunkData['content'],
+                    'embedding' => $embedding,
+                    'token_count' => $chunkData['token_count'],
                 ]);
 
                 if ($embedding) {
@@ -80,19 +82,23 @@ class ProcessDocumentJob implements ShouldQueue
                 }
             }
 
+            if ($successfulChunks === 0) {
+                throw new \Exception('Tidak ada embedding yang berhasil dibuat untuk dokumen ini.');
+            }
+
             // Step 5: Mark document as ready
             $document->update([
-                'status'      => 'ready',
+                'status' => 'ready',
                 'chunk_count' => count($chunks),
             ]);
 
             $totalChunks = count($chunks);
             Log::info("Document {$document->id} processed: {$successfulChunks}/{$totalChunks} chunks embedded");
         } catch (\Exception $e) {
-            Log::error("ProcessDocumentJob failed for document {$this->documentId}: " . $e->getMessage());
+            Log::error("ProcessDocumentJob failed for document {$this->documentId}: ".$e->getMessage());
 
             $document->update([
-                'status'        => 'failed',
+                'status' => 'failed',
                 'error_message' => $e->getMessage(),
             ]);
 
@@ -102,10 +108,10 @@ class ProcessDocumentJob implements ShouldQueue
 
     public function failed(\Throwable $exception): void
     {
-        Log::error("ProcessDocumentJob permanently failed for document {$this->documentId}: " . $exception->getMessage());
+        Log::error("ProcessDocumentJob permanently failed for document {$this->documentId}: ".$exception->getMessage());
 
         KnowledgeDocument::where('id', $this->documentId)->update([
-            'status'        => 'failed',
+            'status' => 'failed',
             'error_message' => $exception->getMessage(),
         ]);
     }
