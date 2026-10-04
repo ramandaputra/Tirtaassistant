@@ -35,19 +35,24 @@ class KnowledgeDocument extends Model
     public function getStatusBadgeAttribute(): string
     {
         return match ($this->status) {
-            'pending'    => '⏳ Pending',
+            'pending' => '⏳ Pending',
             'processing' => '⚙️ Processing',
-            'ready'      => '✅ Ready',
-            'failed'     => '❌ Failed',
-            default      => $this->status,
+            'ready' => '✅ Ready',
+            'failed' => '❌ Failed',
+            default => $this->status,
         };
     }
 
     public function getFileSizeFormattedAttribute(): string
     {
         $bytes = $this->file_size;
-        if ($bytes < 1024) return "{$bytes} B";
-        if ($bytes < 1048576) return round($bytes / 1024, 1) . ' KB';
-        return round($bytes / 1048576, 1) . ' MB';
+        if ($bytes < 1024) {
+            return "{$bytes} B";
+        }
+        if ($bytes < 1048576) {
+            return round($bytes / 1024, 1).' KB';
+        }
+
+        return round($bytes / 1048576, 1).' MB';
     }
 }

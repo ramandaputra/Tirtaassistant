@@ -19,6 +19,12 @@ class ChatInterface extends Component
 
     public $userMessage = '';
 
+    public bool $isOpen = false;
+
+    public bool $isMinimized = false;
+
+    public bool $isExpanded = false;
+
     public $isTyping = false;
 
     public function mount()
@@ -47,11 +53,49 @@ class ChatInterface extends Component
         $this->messages[] = $greeting->toArray();
     }
 
-    public function sendMessage(GeminiService $gemini, VectorSearch $vectorSearch): void
+    public function openChat(): void
+    {
+        $this->isOpen = true;
+        $this->isMinimized = false;
+    }
+
+    public function closeChat(): void
+    {
+        $this->isOpen = false;
+    }
+
+    public function toggleMinimize(): void
+    {
+        $this->isMinimized = ! $this->isMinimized;
+    }
+
+    public function toggleExpand(): void
+    {
+        $this->isExpanded = ! $this->isExpanded;
+        $this->isMinimized = false;
+    }
+
+    public function sendMessage(): void
     {
         $this->validate(['userMessage' => ['required', 'string', 'max:2000']]);
 
+        // Keep chat widget open across Livewire requests
+        $this->isOpen = true;
+
+        // Gemini API can take time; ensure PHP doesn't kill the request early.
+        set_time_limit(120);
+
+        /** @var GeminiService $gemini */
+        $gemini = app(GeminiService::class);
+
+        /** @var VectorSearch $vectorSearch */
+        $vectorSearch = app(VectorSearch::class);
+
         $session = ChatSession::where('session_id', $this->sessionId)->first();
+        if (! $session) {
+            $this->createNewSession();
+            $session = ChatSession::where('session_id', $this->sessionId)->first();
+        }
 
         // 1. Save user message
         $userMsg = ChatMessage::create([
@@ -64,8 +108,10 @@ class ChatInterface extends Component
         $this->userMessage = '';
         $this->isTyping = true;
 
+        $response = 'Maaf, terjadi kendala saat memproses pertanyaan Anda. Silakan coba lagi.';
+        $sources = [];
+
         try {
-            $this->isTyping = true;
             $searchResults = $vectorSearch->search($messageText);
             $sources = $vectorSearch->getSources($searchResults);
 
@@ -84,8 +130,6 @@ class ChatInterface extends Component
             }
         } catch (Throwable $exception) {
             Log::error('Chat message could not be processed.', ['exception' => $exception->getMessage()]);
-            $response = 'Maaf, terjadi kendala saat memproses pertanyaan Anda. Silakan coba lagi.';
-            $sources = [];
         } finally {
             $this->isTyping = false;
         }
@@ -100,10 +144,11 @@ class ChatInterface extends Component
         $this->messages[] = $aiMsg->toArray();
     }
 
-    public function sendQuickMessage(string $message, GeminiService $gemini, VectorSearch $vectorSearch): void
+    public function sendQuickMessage(string $message): void
     {
+        $this->isOpen = true;
         $this->userMessage = $message;
-        $this->sendMessage($gemini, $vectorSearch);
+        $this->sendMessage();
     }
 
     public function render()

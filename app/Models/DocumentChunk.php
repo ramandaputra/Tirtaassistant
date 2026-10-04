@@ -26,6 +26,6 @@ class DocumentChunk extends Model
 
     public function hasEmbedding(): bool
     {
-        return !empty($this->embedding);
+        return ! empty($this->embedding);
     }
 }

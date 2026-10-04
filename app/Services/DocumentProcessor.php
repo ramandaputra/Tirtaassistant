@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 use Smalot\PdfParser\Parser as PdfParser;
 
 /**
@@ -13,32 +12,33 @@ class DocumentProcessor
 {
     // Target chunk size in characters (approx 400-600 tokens)
     private const CHUNK_SIZE = 1500;
+
     // Overlap between chunks to preserve context
     private const CHUNK_OVERLAP = 200;
 
     /**
      * Extract text content from a file
      *
-     * @param  string $path Relative path in storage
-     * @return string
+     * @param  string  $path  Relative path in storage
+     *
      * @throws \Exception
      */
     public function extractText(string $path): string
     {
         $fullPath = Storage::path($path);
 
-        if (!file_exists($fullPath)) {
+        if (! file_exists($fullPath)) {
             throw new \Exception("File not found: {$fullPath}");
         }
 
         $extension = strtolower(pathinfo($fullPath, PATHINFO_EXTENSION));
 
         return match ($extension) {
-            'pdf'       => $this->extractFromPdf($fullPath),
-            'txt'       => $this->extractFromText($fullPath),
-            'md'        => $this->extractFromText($fullPath),
-            'csv'       => $this->extractFromText($fullPath),
-            default     => throw new \Exception("Unsupported file type: {$extension}"),
+            'pdf' => $this->extractFromPdf($fullPath),
+            'txt' => $this->extractFromText($fullPath),
+            'md' => $this->extractFromText($fullPath),
+            'csv' => $this->extractFromText($fullPath),
+            default => throw new \Exception("Unsupported file type: {$extension}"),
         };
     }
 
@@ -48,9 +48,9 @@ class DocumentProcessor
     private function extractFromPdf(string $path): string
     {
         try {
-            $parser   = new PdfParser();
-            $pdf      = $parser->parseFile($path);
-            $text     = $pdf->getText();
+            $parser = new PdfParser;
+            $pdf = $parser->parseFile($path);
+            $text = $pdf->getText();
 
             // Clean up whitespace
             $text = preg_replace('/\s+/', ' ', $text);
@@ -62,7 +62,7 @@ class DocumentProcessor
 
             return $text;
         } catch (\Exception $e) {
-            throw new \Exception('PDF parsing failed: ' . $e->getMessage());
+            throw new \Exception('PDF parsing failed: '.$e->getMessage());
         }
     }
 
@@ -89,17 +89,16 @@ class DocumentProcessor
     /**
      * Split text into overlapping chunks for embedding
      *
-     * @param  string $text
      * @return array<array{content: string, token_count: int}>
      */
     public function chunkText(string $text): array
     {
-        $text   = $this->cleanText($text);
+        $text = $this->cleanText($text);
         $chunks = [];
 
         if (strlen($text) <= self::CHUNK_SIZE) {
             return [[
-                'content'     => $text,
+                'content' => $text,
                 'token_count' => $this->estimateTokenCount($text),
             ]];
         }
@@ -110,24 +109,24 @@ class DocumentProcessor
         $paragraphs = array_values($paragraphs);
 
         $currentChunk = '';
-        $chunkIndex   = 0;
+        $chunkIndex = 0;
 
         foreach ($paragraphs as $paragraph) {
             // If adding this paragraph would exceed chunk size
-            if (strlen($currentChunk) + strlen($paragraph) + 2 > self::CHUNK_SIZE && !empty($currentChunk)) {
+            if (strlen($currentChunk) + strlen($paragraph) + 2 > self::CHUNK_SIZE && ! empty($currentChunk)) {
                 $chunks[] = [
-                    'content'     => trim($currentChunk),
+                    'content' => trim($currentChunk),
                     'token_count' => $this->estimateTokenCount($currentChunk),
                 ];
 
                 // Start new chunk with overlap from previous chunk
-                $overlap      = $this->getOverlapText($currentChunk);
-                $currentChunk = $overlap . "\n\n" . $paragraph;
+                $overlap = $this->getOverlapText($currentChunk);
+                $currentChunk = $overlap."\n\n".$paragraph;
                 $chunkIndex++;
             } else {
                 $currentChunk = empty($currentChunk)
                     ? $paragraph
-                    : $currentChunk . "\n\n" . $paragraph;
+                    : $currentChunk."\n\n".$paragraph;
             }
 
             // Handle very long single paragraphs
@@ -140,19 +139,19 @@ class DocumentProcessor
                 }
 
                 $chunks[] = [
-                    'content'     => trim(substr($currentChunk, 0, $splitAt)),
+                    'content' => trim(substr($currentChunk, 0, $splitAt)),
                     'token_count' => $this->estimateTokenCount(substr($currentChunk, 0, $splitAt)),
                 ];
 
-                $overlap      = $this->getOverlapText(substr($currentChunk, 0, $splitAt));
-                $currentChunk = $overlap . ' ' . trim(substr($currentChunk, $splitAt));
+                $overlap = $this->getOverlapText(substr($currentChunk, 0, $splitAt));
+                $currentChunk = $overlap.' '.trim(substr($currentChunk, $splitAt));
             }
         }
 
         // Add remaining text
-        if (!empty(trim($currentChunk))) {
+        if (! empty(trim($currentChunk))) {
             $chunks[] = [
-                'content'     => trim($currentChunk),
+                'content' => trim($currentChunk),
                 'token_count' => $this->estimateTokenCount($currentChunk),
             ];
         }

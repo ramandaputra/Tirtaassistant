@@ -1,4 +1,11 @@
-<div x-data="{ isOpen: false, isMinimized: false, isExpanded: false }" x-cloak>
+<div 
+    x-data="{ 
+        isOpen: $wire.entangle('isOpen'), 
+        isMinimized: $wire.entangle('isMinimized'), 
+        isExpanded: $wire.entangle('isExpanded') 
+    }" 
+    x-cloak
+>
 
     {{-- ===== Floating Action Button (FAB) ===== --}}
     <button 
@@ -90,7 +97,13 @@
         <div x-show="!isMinimized" class="flex-1 flex flex-col overflow-hidden">
 
                 {{-- Chat Area --}}
-                <div class="flex-1 p-4 overflow-y-auto bg-[#F8FAFC] flex flex-col gap-4 scroll-smooth" id="chat-container" style="scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent;">
+                <div 
+                    class="flex-1 p-4 overflow-y-auto bg-[#F8FAFC] flex flex-col gap-4 scroll-smooth" 
+                    id="chat-container" 
+                    x-init="$nextTick(() => { $el.scrollTop = $el.scrollHeight })"
+                    x-effect="$nextTick(() => { $el.scrollTop = $el.scrollHeight })"
+                    style="scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent;"
+                >
                     
                     {{-- Welcome Message --}}
                     @if(count($messages) === 0)
@@ -110,19 +123,19 @@
 
                         {{-- Quick Actions --}}
                         <div class="flex flex-wrap gap-1.5 pl-10">
-                            <button wire:click="$set('userMessage', 'Cek Tagihan'); sendMessage()" class="bg-white border border-gray-200 hover:border-[#1565C0] hover:text-[#1565C0] text-gray-600 text-[11px] font-semibold py-2 px-3 rounded-xl transition-all shadow-sm">
+                            <button wire:click="sendQuickMessage('Cek Tagihan')" class="bg-white border border-gray-200 hover:border-[#1565C0] hover:text-[#1565C0] text-gray-600 text-[11px] font-semibold py-2 px-3 rounded-xl transition-all shadow-sm">
                                 📄 Cek Tagihan
                             </button>
-                            <button wire:click="$set('userMessage', 'Informasi Tarif'); sendMessage()" class="bg-white border border-gray-200 hover:border-[#1565C0] hover:text-[#1565C0] text-gray-600 text-[11px] font-semibold py-2 px-3 rounded-xl transition-all shadow-sm">
+                            <button wire:click="sendQuickMessage('Informasi Tarif')" class="bg-white border border-gray-200 hover:border-[#1565C0] hover:text-[#1565C0] text-gray-600 text-[11px] font-semibold py-2 px-3 rounded-xl transition-all shadow-sm">
                                 📊 Info Tarif
                             </button>
-                            <button wire:click="$set('userMessage', 'Cara Pembayaran'); sendMessage()" class="bg-white border border-gray-200 hover:border-[#1565C0] hover:text-[#1565C0] text-gray-600 text-[11px] font-semibold py-2 px-3 rounded-xl transition-all shadow-sm">
+                            <button wire:click="sendQuickMessage('Cara Pembayaran')" class="bg-white border border-gray-200 hover:border-[#1565C0] hover:text-[#1565C0] text-gray-600 text-[11px] font-semibold py-2 px-3 rounded-xl transition-all shadow-sm">
                                 💳 Pembayaran
                             </button>
-                            <button wire:click="$set('userMessage', 'Gangguan Air'); sendMessage()" class="bg-white border border-gray-200 hover:border-[#1565C0] hover:text-[#1565C0] text-gray-600 text-[11px] font-semibold py-2 px-3 rounded-xl transition-all shadow-sm">
+                            <button wire:click="sendQuickMessage('Gangguan Air')" class="bg-white border border-gray-200 hover:border-[#1565C0] hover:text-[#1565C0] text-gray-600 text-[11px] font-semibold py-2 px-3 rounded-xl transition-all shadow-sm">
                                 ⚙️ Gangguan
                             </button>
-                            <button wire:click="$set('userMessage', 'Pengaduan'); sendMessage()" class="bg-white border border-gray-200 hover:border-[#1565C0] hover:text-[#1565C0] text-gray-600 text-[11px] font-semibold py-2 px-3 rounded-xl transition-all shadow-sm">
+                            <button wire:click="sendQuickMessage('Pengaduan')" class="bg-white border border-gray-200 hover:border-[#1565C0] hover:text-[#1565C0] text-gray-600 text-[11px] font-semibold py-2 px-3 rounded-xl transition-all shadow-sm">
                                 💬 Pengaduan
                             </button>
                         </div>
@@ -177,34 +190,34 @@
                     @endforeach
                     
                     {{-- Typing Indicator --}}
-                    @if($isTyping)
-                        <div class="flex justify-start items-end gap-2.5">
-                            <div class="w-8 h-8 rounded-full bg-white overflow-hidden flex-shrink-0 border border-gray-100 p-0.5 shadow-sm mb-5 flex items-center justify-center">
-                                <img src="{{ asset('img/icon.png') }}" class="w-full h-full object-contain" alt="Bot">
-                            </div>
-                            <div class="bg-[#F0F4F8] text-gray-500 px-5 py-3.5 rounded-2xl rounded-bl-sm shadow-sm flex items-center gap-1.5 border border-gray-100/50 h-[44px]">
-                                <span class="inline-block w-2 h-2 bg-[#1565C0]/60 rounded-full animate-bounce"></span>
-                                <span class="inline-block w-2 h-2 bg-[#1565C0]/60 rounded-full animate-bounce" style="animation-delay: 0.2s"></span>
-                                <span class="inline-block w-2 h-2 bg-[#1565C0]/60 rounded-full animate-bounce" style="animation-delay: 0.4s"></span>
-                            </div>
+                    <div wire:loading wire:target="sendMessage, sendQuickMessage" class="flex justify-start items-end gap-2.5">
+                        <div class="w-8 h-8 rounded-full bg-white overflow-hidden flex-shrink-0 border border-gray-100 p-0.5 shadow-sm mb-5 flex items-center justify-center">
+                            <img src="{{ asset('img/icon.png') }}" class="w-full h-full object-contain" alt="Bot">
                         </div>
-                    @endif
+                        <div class="bg-[#F0F4F8] text-gray-500 px-5 py-3.5 rounded-2xl rounded-bl-sm shadow-sm flex items-center gap-1.5 border border-gray-100/50 h-[44px]">
+                            <span class="inline-block w-2 h-2 bg-[#1565C0]/60 rounded-full animate-bounce"></span>
+                            <span class="inline-block w-2 h-2 bg-[#1565C0]/60 rounded-full animate-bounce" style="animation-delay: 0.2s"></span>
+                            <span class="inline-block w-2 h-2 bg-[#1565C0]/60 rounded-full animate-bounce" style="animation-delay: 0.4s"></span>
+                        </div>
+                    </div>
                 </div>
 
                 {{-- Input Area --}}
                 <div class="p-3 bg-white border-t border-gray-100 shadow-[0_-4px_10px_rgb(0,0,0,0.02)] flex-shrink-0">
-                    <form wire:submit.prevent="sendMessage" class="flex items-center gap-2 bg-white rounded-full px-2 py-1.5 border-2 border-gray-100 focus-within:border-blue-400 transition-all shadow-sm">
+                    <form wire:submit="sendMessage" class="flex items-center gap-2 bg-white rounded-full px-2 py-1.5 border-2 border-gray-100 focus-within:border-blue-400 transition-all shadow-sm">
                         <input 
                             wire:model="userMessage" 
                             type="text" 
-                            class="flex-1 bg-transparent border-none focus:ring-0 px-3 text-[13px] text-gray-700 placeholder-gray-400 font-medium" 
+                            class="flex-1 bg-transparent border-none focus:ring-0 px-3 text-[13px] text-gray-700 placeholder-gray-400 font-medium disabled:opacity-50" 
                             placeholder="Tulis pesan Anda..."
-                            {{ $isTyping ? 'disabled' : '' }}
+                            wire:loading.attr="disabled"
+                            wire:target="sendMessage, sendQuickMessage"
                         >
                         <button 
                             type="submit" 
                             class="bg-[#1565C0] text-white w-9 h-9 rounded-full flex items-center justify-center hover:bg-blue-800 transition-colors shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
-                            {{ $isTyping ? 'disabled' : '' }}
+                            wire:loading.attr="disabled"
+                            wire:target="sendMessage, sendQuickMessage"
                         >
                             <svg class="w-4 h-4 ml-[-1px] mt-[1px]" fill="currentColor" viewBox="0 0 20 20"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"></path></svg>
                         </button>
