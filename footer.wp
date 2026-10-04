@@ -1,0 +1,741 @@
+<!-- Container Widget TirtAssistant -->
+<div id="tirtassistant-widget"></div>
+
+<script>
+(function () {
+    'use strict';
+
+    const BASE_URL = 'https://tirtassistant.tirtakepri.co.id';
+    const API_BASE = BASE_URL + '/api/widget';
+    const ICON_URL = BASE_URL + '/img/icon.png';
+
+    let sessionId = null;
+    let isOpen = false;
+    let isTyping = false;
+
+    // 1. Buat Shadow Host & Attach Shadow Root
+    const host = document.getElementById('tirtassistant-widget');
+    if (!host) return;
+    const shadow = host.attachShadow({ mode: 'open' });
+
+    // 2. CSS Terisolasi (Style Bubble, Bold, & Button Sumber)
+    const style = document.createElement('style');
+    style.textContent = `
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
+        }
+
+        /* Floating Action Button (FAB) */
+        #tirtassistant-fab {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            z-index: 999999;
+            width: 64px;
+            height: 64px;
+            border: none;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #1976D2 0%, #1565C0 50%, #0D47A1 100%);
+            color: #ffffff;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 8px 24px rgba(21, 101, 192, 0.4), 0 2px 8px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s ease, opacity 0.25s ease;
+        }
+
+        #tirtassistant-fab:hover {
+            transform: scale(1.08);
+            box-shadow: 0 12px 32px rgba(21, 101, 192, 0.5), 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        #tirtassistant-fab svg {
+            width: 28px;
+            height: 28px;
+        }
+
+        #tirtassistant-fab.ta-open {
+            opacity: 0;
+            pointer-events: none;
+            transform: scale(0.8);
+        }
+
+        #tirtassistant-fab::before {
+            content: "";
+            position: absolute;
+            inset: -4px;
+            border-radius: 50%;
+            background: rgba(21, 101, 192, 0.35);
+            animation: taPulse 2s ease-in-out infinite;
+            z-index: -1;
+        }
+
+        #tirtassistant-fab.ta-open::before {
+            animation: none;
+            opacity: 0;
+        }
+
+        @keyframes taPulse {
+            0%, 100% { transform: scale(1); opacity: 0.4; }
+            50% { transform: scale(1.25); opacity: 0; }
+        }
+
+        /* Jendela Chat */
+        #tirtassistant-window {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            z-index: 999999;
+            width: 380px;
+            max-width: calc(100vw - 32px);
+            height: 560px;
+            max-height: calc(100vh - 48px);
+            background: #ffffff;
+            border-radius: 20px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 16px 48px rgba(0, 0, 0, 0.16), 0 4px 12px rgba(0, 0, 0, 0.08);
+            opacity: 0;
+            transform: translateY(16px) scale(0.96);
+            pointer-events: none;
+            transition: opacity 0.25s ease, transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        #tirtassistant-window.ta-visible {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+            pointer-events: auto;
+        }
+
+        /* Header */
+        .ta-header {
+            background: linear-gradient(135deg, #1976D2, #1565C0 50%, #0D47A1);
+            color: #ffffff;
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+        }
+
+        .ta-header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .ta-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #ffffff;
+            padding: 3px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+        }
+
+        .ta-avatar img {
+            width: 24px;
+            height: 24px;
+            object-fit: contain;
+        }
+
+        .ta-avatar-dot {
+            position: absolute;
+            bottom: 0px;
+            right: 0px;
+            width: 9px;
+            height: 9px;
+            background: #4CAF50;
+            border: 2px solid #ffffff;
+            border-radius: 50%;
+        }
+
+        .ta-header-info h2 {
+            margin: 0;
+            font-size: 15px;
+            font-weight: 700;
+            color: #ffffff;
+        }
+
+        .ta-header-info p {
+            margin: 1px 0 0;
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.85);
+        }
+
+        .ta-header-btn {
+            width: 32px;
+            height: 32px;
+            border: none;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.15);
+            color: #ffffff;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+
+        .ta-header-btn:hover {
+            background: rgba(255, 255, 255, 0.25);
+        }
+
+        .ta-header-btn svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        /* Messages Area */
+        .ta-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            background: #f8fafc;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .ta-msg-row {
+            display: flex;
+            align-items: flex-end;
+            gap: 8px;
+            animation: taFadeIn 0.3s ease;
+        }
+
+        .ta-msg-row.ta-user {
+            justify-content: flex-end;
+        }
+
+        .ta-msg-row.ta-bot {
+            justify-content: flex-start;
+        }
+
+        @keyframes taFadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .ta-msg-avatar {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: #ffffff;
+            padding: 2px;
+            border: 1px solid #e2e8f0;
+            flex-shrink: 0;
+        }
+
+        .ta-msg-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .ta-msg-content {
+            max-width: 82%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Bubble Style */
+        .ta-bubble {
+            padding: 12px 16px;
+            border-radius: 18px;
+            font-size: 13px;
+            line-height: 1.5;
+            word-break: break-word;
+        }
+
+        .ta-bot .ta-bubble {
+            background-color: #ffffff !important;
+            color: #1e293b !important;
+            border: 1px solid #e2e8f0 !important;
+            border-bottom-left-radius: 4px !important;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04) !important;
+        }
+
+        .ta-user .ta-bubble {
+            background: linear-gradient(135deg, #1976D2, #1565C0) !important;
+            color: #ffffff !important;
+            border-bottom-right-radius: 4px !important;
+            box-shadow: 0 2px 6px rgba(21, 101, 192, 0.2) !important;
+        }
+
+        /* Styling Sumber / Sources Badge Button */
+        .ta-sources {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px dashed #cbd5e1;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .ta-source-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 11px;
+            font-weight: 500;
+            color: #1e40af;
+            background-color: #eff6ff;
+            border: 1px solid #bfdbfe;
+            padding: 3px 8px;
+            border-radius: 12px;
+            cursor: default;
+            user-select: none;
+            transition: background-color 0.2s;
+        }
+
+        .ta-source-badge:hover {
+            background-color: #dbeafe;
+        }
+
+        .ta-msg-time {
+            font-size: 10px;
+            color: #94a3b8;
+            margin-top: 4px;
+            padding: 0 4px;
+        }
+
+        .ta-user .ta-msg-time {
+            text-align: right;
+        }
+
+        /* Quick Actions */
+        .ta-quick-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            padding-left: 38px;
+            margin-top: 2px;
+        }
+
+        .ta-quick-btn {
+            font-size: 11px;
+            font-weight: 600;
+            padding: 6px 12px;
+            border-radius: 14px;
+            border: 1px solid #cbd5e1;
+            background-color: #ffffff !important;
+            color: #475569 !important;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .ta-quick-btn:hover {
+            border-color: #1565C0;
+            background-color: #eff6ff !important;
+            color: #1565C0 !important;
+        }
+
+        /* Typing Indicator */
+        .ta-typing {
+            display: flex;
+            align-items: flex-end;
+            gap: 8px;
+        }
+
+        .ta-typing-dots {
+            background-color: #ffffff;
+            padding: 12px 16px;
+            border-radius: 16px;
+            border-bottom-left-radius: 4px;
+            border: 1px solid #e2e8f0;
+            display: flex;
+            gap: 4px;
+        }
+
+        .ta-typing-dot {
+            width: 6px;
+            height: 6px;
+            background-color: rgba(21, 101, 192, 0.6);
+            border-radius: 50%;
+            animation: taBounce 1.4s infinite ease-in-out both;
+        }
+
+        .ta-typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .ta-typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes taBounce {
+            0%, 80%, 100% { transform: scale(0); } 
+            40% { transform: scale(1.0); }
+        }
+
+        /* Input Area */
+        .ta-input-area {
+            padding: 10px 12px;
+            background-color: #ffffff;
+            border-top: 1px solid #f1f5f9;
+        }
+
+        .ta-input-form {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background-color: #f8fafc;
+            border: 1.5px solid #cbd5e1;
+            border-radius: 24px;
+            padding: 3px 4px 3px 14px;
+            transition: border-color 0.2s, background 0.2s;
+        }
+
+        .ta-input-form:focus-within {
+            border-color: #1976D2;
+            background-color: #ffffff;
+            box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.1);
+        }
+
+        .ta-input-field {
+            flex: 1;
+            border: none;
+            outline: none;
+            background: transparent;
+            font-size: 13px;
+            color: #1e293b;
+            padding: 6px 0;
+        }
+
+        .ta-input-field::placeholder {
+            color: #94a3b8;
+        }
+
+        .ta-send-btn {
+            width: 34px;
+            height: 34px;
+            border: none;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #1976D2, #1565C0);
+            color: #ffffff;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.2s;
+            flex-shrink: 0;
+        }
+
+        .ta-send-btn:hover {
+            opacity: 0.9;
+        }
+
+        .ta-send-btn svg {
+            width: 14px;
+            height: 14px;
+        }
+
+        /* Footer */
+        .ta-footer {
+            text-align: center;
+            padding: 4px;
+            background-color: #ffffff;
+            border-top: 1px solid #f8fafc;
+        }
+
+        .ta-footer p {
+            margin: 0;
+            font-size: 10px;
+            color: #94a3b8;
+        }
+
+        .ta-footer span {
+            color: #1565C0;
+            font-weight: 600;
+        }
+
+        @media (max-width: 480px) {
+            #tirtassistant-window {
+                bottom: 0;
+                right: 0;
+                width: 100vw;
+                height: 100vh;
+                max-height: 100vh;
+                border-radius: 0;
+            }
+            #tirtassistant-fab {
+                bottom: 16px;
+                right: 16px;
+                width: 56px;
+                height: 56px;
+            }
+        }
+    `;
+
+    // 3. Masukkan Struktur HTML ke Shadow Root
+    const container = document.createElement('div');
+    container.innerHTML = `
+        <div id="tirtassistant-window">
+            <div class="ta-header">
+                <div class="ta-header-left">
+                    <div class="ta-avatar">
+                        <img src="${ICON_URL}" alt="TirtAssistant">
+                        <span class="ta-avatar-dot"></span>
+                    </div>
+                    <div class="ta-header-info">
+                        <h2>TirtAssistant</h2>
+                        <p>Asisten Virtual Tirta Kepri</p>
+                    </div>
+                </div>
+                <button class="ta-header-btn" id="ta-close-btn" aria-label="Tutup">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+
+            <div class="ta-messages" id="ta-messages"></div>
+
+            <div class="ta-input-area">
+                <div class="ta-input-form">
+                    <input class="ta-input-field" id="ta-input" type="text" placeholder="Tulis pesan Anda..." autocomplete="off">
+                    <button class="ta-send-btn" id="ta-send" type="button" aria-label="Kirim">
+                        <svg fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <div class="ta-footer">
+                <p>Powered by <span>Tirta Kepri</span></p>
+            </div>
+        </div>
+
+        <button id="tirtassistant-fab" aria-label="Buka Chat TirtAssistant">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+            </svg>
+        </button>
+    `;
+
+    shadow.appendChild(style);
+    shadow.appendChild(container);
+
+    // 4. Logika JavaScript
+    const fab = shadow.getElementById('tirtassistant-fab');
+    const win = shadow.getElementById('tirtassistant-window');
+    const messages = shadow.getElementById('ta-messages');
+    const input = shadow.getElementById('ta-input');
+    const sendBtn = shadow.getElementById('ta-send');
+    const closeBtn = shadow.getElementById('ta-close-btn');
+
+    function formatTime() {
+        const now = new Date();
+        return String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+    }
+
+    // Fungsi Markdown Parser Sederhana
+    function formatMarkdown(text) {
+        if (!text) return '';
+
+        let formatted = String(text)
+            .replace(/&/g, "&")
+            .replace(/</g, "<")
+            .replace(/>/g, ">");
+
+        // Format **bold**
+        formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+
+        // Format bullet list (* item atau - item)
+        formatted = formatted.replace(/(?:^|\n)\s*[\*\-]\s+(.*)/g, '<br>• $1');
+
+        // Line break
+        formatted = formatted.replace(/\n/g, '<br>');
+
+        return formatted;
+    }
+
+    function scrollBottom() {
+        messages.scrollTop = messages.scrollHeight;
+    }
+
+    function renderBotMessage(content, sources, time) {
+        let sourcesHtml = '';
+        
+        // Filter duplikat dokumen sumber
+        if (sources && sources.length) {
+            const uniqueSources = [...new Set(sources.map(s => (typeof s === 'object' ? s.document : s)))];
+            sourcesHtml = `
+                <div class="ta-sources">
+                    ${uniqueSources.map(doc => `
+                        <span class="ta-source-badge">
+                            📄 ${formatMarkdown(doc)}
+                        </span>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        messages.insertAdjacentHTML('beforeend', `
+            <div class="ta-msg-row ta-bot">
+                <div class="ta-msg-avatar">
+                    <img src="${ICON_URL}" alt="Bot">
+                </div>
+                <div class="ta-msg-content">
+                    <div class="ta-bubble">
+                        ${formatMarkdown(content)}
+                        ${sourcesHtml}
+                    </div>
+                    <span class="ta-msg-time">${formatMarkdown(time || formatTime())}</span>
+                </div>
+            </div>
+        `);
+        scrollBottom();
+    }
+
+    function renderUserMessage(content) {
+        messages.insertAdjacentHTML('beforeend', `
+            <div class="ta-msg-row ta-user">
+                <div class="ta-msg-content">
+                    <div class="ta-bubble">
+                        ${formatMarkdown(content)}
+                    </div>
+                    <span class="ta-msg-time">${formatTime()}</span>
+                </div>
+            </div>
+        `);
+        scrollBottom();
+    }
+
+    function renderQuickActions() {
+        const actions = ['📄 Cek Tagihan', '📊 Info Tarif', '💳 Pembayaran', '⚙️️ Gangguan', '💬 Pengaduan'];
+        const div = document.createElement('div');
+        div.className = 'ta-quick-actions';
+
+        actions.forEach(label => {
+            const button = document.createElement('button');
+            button.className = 'ta-quick-btn';
+            button.textContent = label;
+            button.onclick = function () {
+                const text = label.substring(label.indexOf(' ') + 1);
+                div.remove();
+                sendMessage(text);
+            };
+            div.appendChild(button);
+        });
+
+        messages.appendChild(div);
+        scrollBottom();
+    }
+
+    function showTyping() {
+        messages.insertAdjacentHTML('beforeend', `
+            <div class="ta-typing">
+                <div class="ta-msg-avatar"><img src="${ICON_URL}" alt="Bot"></div>
+                <div class="ta-typing-dots">
+                    <span class="ta-typing-dot"></span>
+                    <span class="ta-typing-dot"></span>
+                    <span class="ta-typing-dot"></span>
+                </div>
+            </div>
+        `);
+        scrollBottom();
+    }
+
+    function hideTyping() {
+        const typing = messages.querySelector('.ta-typing');
+        if (typing) typing.remove();
+    }
+
+    function startSession() {
+        return fetch(API_BASE + '/session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({})
+        })
+        .then(res => res.json())
+        .then(data => {
+            sessionId = data.session_id;
+            if (data.greeting) renderBotMessage(data.greeting.content, [], data.greeting.time);
+            renderQuickActions();
+        })
+        .catch(() => renderBotMessage('Maaf, tidak dapat terhubung ke server.', []));
+    }
+
+    function sendMessage(text) {
+        if (!text || isTyping) return;
+        renderUserMessage(text);
+        isTyping = true;
+        input.disabled = true;
+        sendBtn.disabled = true;
+        showTyping();
+
+        if (!sessionId) {
+            startSession().then(() => doSend(text));
+        } else {
+            doSend(text);
+        }
+    }
+
+    function doSend(text) {
+        fetch(API_BASE + '/message', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({ session_id: sessionId, message: text })
+        })
+        .then(res => res.json())
+        .then(data => {
+            hideTyping();
+            isTyping = false;
+            input.disabled = false;
+            sendBtn.disabled = false;
+            if (data.reply) renderBotMessage(data.reply.content, data.reply.sources || [], data.reply.time);
+            input.focus();
+        })
+        .catch(() => {
+            hideTyping();
+            isTyping = false;
+            input.disabled = false;
+            sendBtn.disabled = false;
+            renderBotMessage('Maaf, terjadi kendala. Silakan coba lagi.', []);
+        });
+    }
+
+    fab.addEventListener('click', () => {
+        isOpen = !isOpen;
+        if (isOpen) {
+            fab.classList.add('ta-open');
+            win.classList.add('ta-visible');
+            if (!sessionId) startSession();
+            setTimeout(() => input.focus(), 350);
+        } else {
+            fab.classList.remove('ta-open');
+            win.classList.remove('ta-visible');
+        }
+    });
+
+    closeBtn.addEventListener('click', () => {
+        isOpen = false;
+        fab.classList.remove('ta-open');
+        win.classList.remove('ta-visible');
+    });
+
+    sendBtn.addEventListener('click', () => {
+        const text = input.value.trim();
+        if (!text) return;
+        input.value = '';
+        sendMessage(text);
+    });
+
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const text = input.value.trim();
+            if (!text) return;
+            input.value = '';
+            sendMessage(text);
+        }
+    });
+})();
+</script>
