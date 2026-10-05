@@ -55,4 +55,9 @@ class KnowledgeDocument extends Model
 
         return round($bytes / 1048576, 1).' MB';
     }
+
+    public function getExtensionAttribute(): string
+    {
+        return strtolower(pathinfo($this->original_name ?? $this->filename, PATHINFO_EXTENSION));
+    }
 }
